@@ -1,0 +1,139 @@
+name: Build Native Executables
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+            artifact: pomodoro-cli-macos-arm64
+          - os: macos-13
+            arch: x64
+            artifact: pomodoro-cli-macos-x64
+          - os: ubuntu-24.04
+            arch: x64
+            artifact: pomodoro-cli-linux-x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            artifact: pomodoro-cli-linux-arm64
+          - os: windows-latest
+            arch: x64
+            artifact: pomodoro-cli-windows-x64
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build native image (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x mvnw
+          ./mvnw clean package -Pnative -DskipTests
+
+      - name: Build native image (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: mvnw.cmd clean package -Pnative -DskipTests
+
+      - name: Rename artifact (Unix)
+        if: runner.os != 'Windows'
+        run: mv target/pomodoro-cli target/${{ matrix.artifact }}
+
+      - name: Rename artifact (Windows)
+        if: runner.os == 'Windows'
+        run: move target\pomodoro-cli.exe target\${{ matrix.artifact }}.exe
+
+      - name: Upload artifact (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/${{ matrix.artifact }}
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/${{ matrix.artifact }}.exe
+
+  # Windows ARM64 cross-compile (no native runner available)
+  build-windows-arm64:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build JAR only (Windows ARM64 native-image not supported)
+        shell: cmd
+        run: mvnw.cmd clean package -DskipTests
+
+      - name: Create launcher script
+        shell: powershell
+        run: |
+          @"
+          @echo off
+          java -jar "%~dp0pomodoro-cli-1.0-SNAPSHOT.jar" %*
+          "@ | Out-File -FilePath target/pomodoro-cli-windows-arm64.bat -Encoding ASCII
+
+      - name: Upload Windows ARM64 JAR bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: pomodoro-cli-windows-arm64-jar
+          path: |
+            target/pomodoro-cli-1.0-SNAPSHOT.jar
+            target/pomodoro-cli-windows-arm64.bat
+
+  release:
+    needs: [build, build-windows-arm64]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/pomodoro-cli-macos-arm64/pomodoro-cli-macos-arm64
+            artifacts/pomodoro-cli-macos-x64/pomodoro-cli-macos-x64
+            artifacts/pomodoro-cli-linux-x64/pomodoro-cli-linux-x64
+            artifacts/pomodoro-cli-linux-arm64/pomodoro-cli-linux-arm64
+            artifacts/pomodoro-cli-windows-x64/pomodoro-cli-windows-x64.exe
+            artifacts/pomodoro-cli-windows-arm64-jar/pomodoro-cli-1.0-SNAPSHOT.jar
+            artifacts/pomodoro-cli-windows-arm64-jar/pomodoro-cli-windows-arm64.bat
+          generate_release_notes: true

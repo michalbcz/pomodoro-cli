@@ -1,0 +1,9 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": "\\Q/default-finish-sound.mp3\\E"
+      }
+    ]
+  }
+}
