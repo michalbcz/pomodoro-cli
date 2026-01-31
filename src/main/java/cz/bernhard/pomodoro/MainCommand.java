@@ -3,8 +3,6 @@ package cz.bernhard.pomodoro;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import java.io.IOException;
-
 @Command(name = "pomodoro", description = "Simple Pomodoro timer")
 public class MainCommand implements Runnable {
 
@@ -13,9 +11,6 @@ public class MainCommand implements Runnable {
 
     @Option(names = {"-t", "--time"}, description = "Time in minutes or minutes:seconds (e.g., 4 or 4:30)")
     private String time;
-
-    @Option(names = {"--play-on-finish"}, description = "Path to sound file to play when timer is finished")
-    private String soundFilePath;
 
     @Override
     public void run() {
@@ -29,11 +24,7 @@ public class MainCommand implements Runnable {
 
             @Override
             public void onFinish() {
-                if (soundFilePath != null) {
-                    new SoundPlayer().play(soundFilePath);
-                } else {
-                    new SoundPlayer().play(getClass().getResourceAsStream("/default-finish-sound.mp3"));
-                }
+                System.out.println(); // Print newline after timer completes
             }
         };
 
