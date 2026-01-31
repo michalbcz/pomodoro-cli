@@ -12,7 +12,7 @@ Simple lightweight terminal-based Pomodoro timer written in Java. It relies on [
 
 ## Requirements
 
-- JDK 17 or later
+- JDK 25 (or adjust `pom.xml` if you need to target an earlier release)
 - Maven 3.9+ (or simply use the provided `mvnw` wrapper)
 - Optional: GraalVM with `native-image` installed for the native build path
 
