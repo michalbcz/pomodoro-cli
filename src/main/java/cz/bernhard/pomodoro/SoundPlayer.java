@@ -126,9 +126,29 @@ public class SoundPlayer {
             AudioInputStream din = AudioSystem.getAudioInputStream(decodedFormat, in);
             DataLine.Info info = new DataLine.Info(Clip.class, din.getFormat());
             Clip clip = (Clip) AudioSystem.getLine(info);
+
+            // Use a LineListener to wait for playback to complete
+            final Object lock = new Object();
+            clip.addLineListener(event -> {
+                if (event.getType() == LineEvent.Type.STOP) {
+                    synchronized (lock) {
+                        lock.notify();
+                    }
+                }
+            });
+
             clip.open(din);
             clip.start();
-            clip.drain();
+
+            // Wait for the clip to finish playing
+            synchronized (lock) {
+                try {
+                    lock.wait();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
             clip.close();
             return true;
         } catch (Exception e) {
