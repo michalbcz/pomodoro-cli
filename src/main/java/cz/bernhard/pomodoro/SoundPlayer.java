@@ -7,6 +7,7 @@ import java.nio.file.Path;
 
 public class SoundPlayer {
 
+    // Defensive: some runtimes may not set java.home; avoid null usage in audio stack.
     static {
         if (System.getProperty("java.home") == null) {
             System.setProperty("java.home", ".");
